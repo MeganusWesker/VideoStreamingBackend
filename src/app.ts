@@ -3,6 +3,7 @@ import { config } from "dotenv";
 import errorMidleware from "./middlewares/error.js";
 import cookiParser from "cookie-parser";
 import cors from "cors";
+import { Request,Response } from "express";
 
 const app=express();
 
@@ -34,6 +35,11 @@ app.use('/api/v1',user);
 app.use('/api/v1/course',course);
 app.use('/api/v1/payment',payment);
 app.use('/api/v1',other);
+
+
+app.get('/',(req:Request,res:Response)=>{
+   res.send("working")
+})
 
 
 export default app;
