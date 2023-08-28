@@ -1,5 +1,5 @@
 import express from "express";
-import { config } from "dotenv";
+import {config} from "dotenv";
 import errorMidleware from "./middlewares/error.js";
 import cookiParser from "cookie-parser";
 import cors from "cors";
@@ -7,7 +7,12 @@ import { Request,Response } from "express";
 
 const app=express();
 
-config();
+// dotenv importing here 
+if(process.env.NODE_ENV!=="Production"){
+   config();
+}
+
+
 app.use(express.json());
 app.use(express.urlencoded({extended:true}));
 app.use(cookiParser());
