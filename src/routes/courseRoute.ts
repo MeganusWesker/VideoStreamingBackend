@@ -1,7 +1,7 @@
 import { Router } from "express";
 const router: Router = Router();
 
-import { isAuthenticatedUser,isAdmin } from "../middlewares/userAuth.js";
+import { isAuthenticatedUser,isAdmin, isAutorizedUser } from "../middlewares/userAuth.js";
 
 import singleUpload from "../middlewares/multer.js";
 
@@ -24,7 +24,7 @@ router.route('/course/:id')
 .delete(isAuthenticatedUser,isAdmin,deleteCourse)
             
 
-router.route('/getcourselectures/:id').get(getCourseLectures);
+router.route('/getcourselectures/:id').get(isAuthenticatedUser,isAutorizedUser,getCourseLectures);
 
 router.route('/deletelecture').delete(isAuthenticatedUser,isAdmin,deleteLecture);
 

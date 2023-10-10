@@ -15,7 +15,8 @@ import {
   removeFromPlaylist,
   updateUser,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  changePhoto
 } from "../controller/userController.js";
 import { isAuthenticatedUser,isAdmin } from "../middlewares/userAuth.js";
 import singleUpload from "../middlewares/multer.js";
@@ -33,9 +34,10 @@ router.route("/admin/users").get(isAuthenticatedUser,isAdmin, getAllUsers);
 router.route("/addToPlaylist").post(isAuthenticatedUser, addToPlayList);
 router.route("/removefromplaylist").delete(isAuthenticatedUser, removeFromPlaylist);
 router.route("/changePassword").put(isAuthenticatedUser, changePassword);
-router.route("/updateprofile").put(singleUpload,isAuthenticatedUser, updateProfile);
+router.route("/updateprofile").put(isAuthenticatedUser, updateProfile);
+router.route("/updatePhoto").put(singleUpload,isAuthenticatedUser,changePhoto);
 router.route("/me").get(isAuthenticatedUser, getMyProfile).delete(isAuthenticatedUser,deleteMyProfile);
-router.route("/admin/updateUser/:id").put(isAuthenticatedUser,isAdmin,updateUser);
+router.route("/admin/updateUser/:id").get(isAuthenticatedUser,isAdmin,updateUser);
 
 
 export default router;

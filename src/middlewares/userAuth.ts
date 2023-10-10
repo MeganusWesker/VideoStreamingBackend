@@ -16,8 +16,10 @@ export interface IGetUserAuthInfoRequest extends Request {
 export const isAuthenticatedUser = catchAsyncError(async (req:IGetUserAuthInfoRequest,res:Response,next:NextFunction)=>{
   // const {token}:{token?:string} = req.cookies;
    const token = req.cookies.token as string;
+
    
       if(!token){
+     
           return next(new ErrorHandler('login first to acces this resource',401))
       }
 
@@ -34,4 +36,13 @@ export const isAuthenticatedUser = catchAsyncError(async (req:IGetUserAuthInfoRe
     }
     next();
  })
+
+ export const isAutorizedUser=catchAsyncError(async(req:IGetUserAuthInfoRequest,res:Response,next:NextFunction)=>{
+    if(req.user.role==="admin" || (req.user.subscription && req.user.subscription.status==='active')){
+       next();
+       return;
+    }
+
+    return next(new ErrorHandler(`Buy Subscrption To watch`,401));
+})
 

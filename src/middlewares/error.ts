@@ -3,7 +3,7 @@ import ErrorHandler from "../utils/ErrorHandler.js";
 
 
 const error=(err:ErrorHandler,req:Request,res:Response,next:NextFunction)=>{
-    console.log(err)
+   
 
       if(err.code===11000)
            err= new ErrorHandler(`email is already registerd`,403);

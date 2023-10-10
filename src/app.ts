@@ -17,6 +17,7 @@ app.use(express.json());
 app.use(express.urlencoded({extended:true}));
 app.use(cookiParser());
 
+console.log(process.env.FRONTEND_URL1 );
 
 app.use(
    cors({

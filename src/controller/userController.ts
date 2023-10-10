@@ -9,6 +9,7 @@ import cloudinary from "cloudinary";
 import { UserDocument } from "../models/userModel.js";
 import { IGetUserAuthInfoRequest } from "../middlewares/userAuth.js";
 import { Course, ICourseSchemaDocument } from "../models/courseModel.js";
+import { Stats } from "../models/statsModel.js";
 
 type userType = {
   name?: string | undefined;
@@ -24,6 +25,8 @@ export const register = catchAsyncErrors(
     if (!name || !email || !password) {
       return next(new ErrorHandler("please enter all fields ", 400));
     }
+
+    console.log(file);
 
     interface CloudinaryResponse {
       public_id: string;
@@ -137,12 +140,12 @@ export const login = catchAsyncErrors(
 
 export const logout = catchAsyncErrors(
   async (req: Request, res: Response, next: NextFunction) => {
-    res.cookie('token', null, {
+    res.cookie("token", null, {
       expires: new Date(Date.now()),
       httpOnly: process.env.NODE_ENV === "Development" ? false : true,
       secure: process.env.NODE_ENV === "Development" ? false : true,
       sameSite: process.env.NODE_ENV === "Development" ? false : "none",
-  });
+    });
 
     res.status(200).json({
       success: true,
@@ -155,40 +158,12 @@ export const updateProfile = catchAsyncErrors(
   async (req: IGetUserAuthInfoRequest, res: Response, next: NextFunction) => {
     const { email, name }: { email: string; name: string } = req.body;
 
-
-    console.log(name,email);
-    const file = req.file as Express.Multer.File;
-
-    console.log(file);
     const user = (await User.findById(req.user._id)) as UserDocument;
+
+    console.log(name, email);
 
     if (name) {
       user.name = name;
-    }
-
-    if (file) {
-      const fileUrl = getDataUri(file);
-      const myCloud = await cloudinary.v2.uploader.upload(
-        fileUrl.content as string,
-        {
-          folder: "avatars",
-        }
-      );
-
-      console.log(myCloud);
-
-      if (user.avatar !== undefined && user.avatar.public_id!==null){
-          console.log("hena bhai")
-          await cloudinary.v2.uploader.destroy(user.avatar.public_id);
-      }
-       
-
-      user.avatar = {
-        public_id: myCloud.public_id,
-        url: myCloud.secure_url,
-      };
-
-      console.log("ho ri hai kya ?")
     }
 
     let emailChangedMessage = "";
@@ -210,11 +185,11 @@ export const updateProfile = catchAsyncErrors(
       try {
         await sendEmail(email, subject, text);
       } catch (error) {
-        if(error instanceof ErrorHandler)
-            return res.status(400).json({
-                success: false,
-                message: error.message,
-            });
+        if (error instanceof ErrorHandler)
+          return res.status(400).json({
+            success: false,
+            message: error.message,
+          });
       }
 
       emailChangedMessage = `please verify you're email`;
@@ -225,6 +200,42 @@ export const updateProfile = catchAsyncErrors(
     res.status(200).json({
       success: true,
       message: `profile updated successfully ${emailChangedMessage}`,
+    });
+  }
+);
+
+export const changePhoto = catchAsyncErrors(
+  async (req: IGetUserAuthInfoRequest, res: Response, next: NextFunction) => {
+    const file = req.file as Express.Multer.File;
+
+    console.log(file);
+    const user = (await User.findById(req.user._id)) as UserDocument;
+
+    const fileUrl = getDataUri(file);
+    const myCloud = await cloudinary.v2.uploader.upload(
+      fileUrl.content as string,
+      {
+        folder: "avatars",
+      }
+    );
+
+    console.log(myCloud);
+
+    if (user.avatar !== undefined && user.avatar.public_id !== null) {
+      console.log("hena bhai");
+      await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+    }
+
+    user.avatar = {
+      public_id: myCloud.public_id,
+      url: myCloud.secure_url,
+    };
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: `photo updated successfully`,
     });
   }
 );
@@ -275,14 +286,14 @@ export const changePassword = catchAsyncErrors(
   }
 );
 
-export const forgotPassword = catchAsyncErrors(async (req:Request, res:Response, next:NextFunction) => {
+export const forgotPassword = catchAsyncErrors(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { email }: { email: string } = req.body;
 
-    const { email }:{email:string} = req.body;
-
-    const user = await User.findOne({ email }) as UserDocument;
+    const user = (await User.findOne({ email })) as UserDocument;
 
     if (!user) {
-        return next(new ErrorHandler("user not found with this email", 404));
+      return next(new ErrorHandler("user not found with this email", 404));
     }
 
     const otp = Math.floor(Math.random() * 10000000);
@@ -292,52 +303,64 @@ export const forgotPassword = catchAsyncErrors(async (req:Request, res:Response,
     const text = `hey this is you're otp ${otp} valid for 5 mintues please verify ignore if you did'nt registerd or requested`;
 
     user.otp = otp;
-    user.otp_expiry = new Date(Date.now() + Number(process.env.OTP_EXPIRE) * 60 * 1000);
+    user.otp_expiry = new Date(
+      Date.now() + Number(process.env.OTP_EXPIRE) * 60 * 1000
+    );
 
     await user.save({ validateBeforeSave: false });
 
     try {
+      await sendEmail(email, subject, text);
 
-        await sendEmail(email,subject,text);
-
-        res.status(200).json({
-            success: true,
-            message: `email sent to ${user.email} succesfully`
-        })
-
-
+      res.status(200).json({
+        success: true,
+        message: `email sent to ${user.email} succesfully`,
+      });
     } catch (error) {
-        user.otp = undefined;
-        user.otp_expiry = undefined;
+      user.otp = undefined;
+      user.otp_expiry = undefined;
 
-        await user.save({ validateBeforeSave: false });
+      await user.save({ validateBeforeSave: false });
 
-
-        if(error instanceof ErrorHandler)
-           return next(new ErrorHandler(error.message, 500));
+      if (error instanceof ErrorHandler)
+        return next(new ErrorHandler(error.message, 500));
     }
-
-});
+  }
+);
 
 // reseting password
-export const resetPassword = catchAsyncErrors(async (req:Request, res:Response, next:NextFunction) => {
-    const { otp }:{otp:string} = req.body;
+export const resetPassword = catchAsyncErrors(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { otp }: { otp: string } = req.body;
 
     Number(otp);
 
     const user = await User.findOne({
-        otp,
-        otp_expiry: { $gt: Date.now() }
+      otp,
+      otp_expiry: { $gt: Date.now() },
     });
 
     if (!user) {
-        return next(new ErrorHandler("reset password otp is invalid or has been expired", 404));
+      return next(
+        new ErrorHandler(
+          "reset password otp is invalid or has been expired",
+          404
+        )
+      );
     }
 
-    const { confirmPassword, password }:{confirmPassword:string,password:string} = req.body;
+    const {
+      confirmPassword,
+      password,
+    }: { confirmPassword: string; password: string } = req.body;
 
     if (password !== confirmPassword) {
-        return next(new ErrorHandler(" confimr password dosen't matched with you're new password ", 403));
+      return next(
+        new ErrorHandler(
+          " confimr password dosen't matched with you're new password ",
+          403
+        )
+      );
     }
 
     user.password = password;
@@ -347,162 +370,200 @@ export const resetPassword = catchAsyncErrors(async (req:Request, res:Response, 
     await user.save();
 
     res.status(200).json({
-        success: true,
-        message: "password rested successfully"
+      success: true,
+      message: "password rested successfully",
     });
-});
+  }
+);
 
+export const addToPlayList = catchAsyncErrors(
+  async (req: IGetUserAuthInfoRequest, res: Response, next: NextFunction) => {
+    const user = (await User.findById(req.user._id)) as UserDocument;
 
-export const addToPlayList=catchAsyncErrors(async (req:IGetUserAuthInfoRequest,res:Response,next:NextFunction)=>{
-
-    const user = await User.findById(req.user._id) as UserDocument;
-
-    if(!req.body.id){
-        return next(new ErrorHandler("please enter course id",400));
+    if (!req.body.id) {
+      return next(new ErrorHandler("please enter course id", 400));
     }
 
-    const course =await Course.findById(req.body.id) as ICourseSchemaDocument;
-    if(!course){
-        return next(new ErrorHandler("course not found ",404));
+    const course = (await Course.findById(
+      req.body.id
+    )) as ICourseSchemaDocument;
+    if (!course) {
+      return next(new ErrorHandler("course not found ", 404));
     }
 
-    let itemExist=false;
+    let itemExist = false;
 
-    if(user.playlist!==undefined)
-      for(let i=0; i<user.playlist.length; i++){
-          if(req.body.id===user.playlist[i].course.toString()){
-              itemExist=true;
-          }
+    if (user.playlist !== undefined)
+      for (let i = 0; i < user.playlist.length; i++) {
+        if (req.body.id === user.playlist[i].course.toString()) {
+          itemExist = true;
+        }
       }
 
-    if(itemExist){
-        return next(new ErrorHandler("course already in you're playlist ",409));
+    if (itemExist) {
+      return next(new ErrorHandler("course already in you're playlist ", 409));
     }
-    if(user.playlist!==undefined)
+    if (user.playlist !== undefined)
       user.playlist.push({
-          course:course._id,
-          poster:course.poster.url
+        course: course._id,
+        poster: course.poster.url,
       });
 
     await user.save();
 
     res.status(200).json({
-        success:true,
-        message:"course added successfully"
-    })
-});
+      success: true,
+      message: "course added successfully",
+    });
+  }
+);
 
-export const removeFromPlaylist =catchAsyncErrors(async (req:IGetUserAuthInfoRequest,res:Response,next:NextFunction)=>{
-    const user = await User.findById(req.user._id) as UserDocument;
+export const removeFromPlaylist = catchAsyncErrors(
+  async (req: IGetUserAuthInfoRequest, res: Response, next: NextFunction) => {
+    const user = (await User.findById(req.user._id)) as UserDocument;
 
-    const course =await Course.findById(req.query.id) as ICourseSchemaDocument; //?= query
+    const course = (await Course.findById(
+      req.query.id
+    )) as ICourseSchemaDocument; //?= query
 
-    if(!course){
-       return next(new ErrorHandler("course not found ",404));
+    if (!course) {
+      return next(new ErrorHandler("course not found ", 404));
     }
 
-       let courseIndex;
+    let courseIndex;
 
-   if(user.playlist!==undefined)    
-      for(let i=0; i<user.playlist.length; i++){
+    if (user.playlist !== undefined)
+      for (let i = 0; i < user.playlist.length; i++) {
         // console.log(user.playlist[i].course); it will create this result new ObjectId("6332a3e5e9086ad54b3de1ff");
         // so we have to get the id from this object so this could be done by toString method ;console.log(user.playlist[i].course.toString()); result 6332a3e5e9086ad54b3de1ff
 
-          if(req.query.id===user.playlist[i].course.toString()){
-              courseIndex=i;
-              user.playlist.splice(courseIndex,1);
-              await user.save();
-              return  res.status(200).json({
-                  success:true,
-                  message:"course removed successfully"
-              });
-          }
+        if (req.query.id === user.playlist[i].course.toString()) {
+          courseIndex = i;
+          user.playlist.splice(courseIndex, 1);
+          await user.save();
+          return res.status(200).json({
+            success: true,
+            message: "course removed successfully",
+          });
+        }
       }
 
-     res.status(200).json({
-        success:false,
-        message:"no course found in you're playlist"
+    res.status(200).json({
+      success: false,
+      message: "no course found in you're playlist",
     });
-});
+  }
+);
 
-export const getAllUsers=catchAsyncErrors(async(req:Request,res:Response,next:NextFunction)=>{
-
-    const users:Array<UserDocument>=await User.find();
+export const getAllUsers = catchAsyncErrors(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const users: Array<UserDocument> = await User.find();
 
     res.status(200).json({
-        success:true,
-        users
+      success: true,
+      users,
     });
-});
+  }
+);
 
-export const deleteUser =catchAsyncErrors(async (req:Request,res:Response,next:NextFunction)=>{
+export const deleteUser = catchAsyncErrors(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = (await User.findById(req.query.id)) as UserDocument;
 
-    const user=await User.findById(req.query.id) as UserDocument;
-
-    if(!user){
-        return next(new ErrorHandler("user not found",404));
+    if (!user) {
+      return next(new ErrorHandler("user not found", 404));
     }
 
- 
-    if(user.avatar!==undefined && user.avatar.public_id!==null)
-        await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+    if (user.avatar !== undefined && user.avatar.public_id !== null)
+      await cloudinary.v2.uploader.destroy(user.avatar.public_id);
 
-    await User.deleteOne({_id:req.query.id});
+    await User.deleteOne({ _id: req.query.id });
 
     res.status(200).json({
-        success:true,
-        message:"user deleted successfully"
+      success: true,
+      message: "user deleted successfully",
     });
-});
+  }
+);
 
-export const updateUser =catchAsyncErrors(async(req:Request,res:Response,next:NextFunction)=>{
-    const user=await User.findById(req.params.id) as UserDocument;
+export const updateUser = catchAsyncErrors(
+  async (req: Request, res: Response, next: NextFunction) => {
+    console.log("challa bhencho");
 
-    if(!user){
-        return next(new ErrorHandler("user not found",404));
+    const user = (await User.findById(req.params.id)) as UserDocument;
+
+    if (!user) {
+      return next(new ErrorHandler("user not found", 404));
     }
 
-    if(user.role==="user"){
-       user.role="admin";
-    }else{
-        user.role="user";
+    console.log("challa bhencho2");
+
+    if (user.role === "user") {
+      user.role = "admin";
+    } else {
+      user.role = "user";
     }
+
+    console.log("challa bhencho3");
 
     await user.save();
 
     res.status(200).json({
-        success:true,
-        message:"user updated successfully"
+      success: true,
+      message: "user updated successfully",
     });
+  }
+);
 
-});
-
-export const getMyProfile =catchAsyncErrors(async(req:IGetUserAuthInfoRequest,res:Response,next:NextFunction)=>{
-
-    const user =await User.findById(req.user._id) as UserDocument;
+export const getMyProfile = catchAsyncErrors(
+  async (req: IGetUserAuthInfoRequest, res: Response, next: NextFunction) => {
+    const user = (await User.findById(req.user._id)) as UserDocument;
 
     res.status(200).json({
-        success:true,
-        user
+      success: true,
+      user,
     });
-});
+  }
+);
 
-export const deleteMyProfile=catchAsyncErrors(async(req:IGetUserAuthInfoRequest,res:Response,next:NextFunction)=>{
+export const deleteMyProfile = catchAsyncErrors(
+  async (req: IGetUserAuthInfoRequest, res: Response, next: NextFunction) => {
+    const user = (await User.findById(req.user._id)) as UserDocument;
 
-    const user =await User.findById(req.user._id) as UserDocument;
+    if (user?.avatar && user.avatar.public_id !== null)
+      await cloudinary.v2.uploader.destroy(user.avatar.public_id);
 
-    if(user?.avatar && user.avatar.public_id!==null)
-        await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+    await User.deleteOne({ _id: req.user._id });
 
-        await User.deleteOne({_id:req.user._id});
-
-    res.status(200).cookie("token",null,{
-        expires:new Date(Date.now()),
+    res
+      .status(200)
+      .cookie("token", null, {
+        expires: new Date(Date.now()),
         httpOnly: process.env.NODE_ENV === "Development" ? false : true,
         secure: process.env.NODE_ENV === "Development" ? false : true,
         sameSite: process.env.NODE_ENV === "Development" ? false : "none",
-    }).json({
-        success:true,
-        message:"user deleted successfully"
-    });
+      })
+      .json({
+        success: true,
+        message: "user deleted successfully",
+      });
+  }
+);
+
+User.watch().on("change", async () => {
+  //finding the last state / current month stat
+  const stat = await Stats.find({}).sort({ createdAt: "desc" }).limit(1);
+
+  // finding users who have subscribed 
+
+  const subscribedUser=await User.find({"subscription.status": "active" });
+
+  
+
+  stat[0].subscriptions=subscribedUser.length;
+  stat[0].users=await User.countDocuments();
+  stat[0].createdAt=new Date(Date.now());
+
+  await stat[0].save();
+
 });

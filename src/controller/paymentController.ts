@@ -90,11 +90,17 @@ export const cancelSubscription = catchAsyncErrors(
 
     const subscriptionId = user.subscription.id as string;
 
+  
     await instance.subscriptions.cancel(subscriptionId);
 
+  
+
+
     const payment = await Payment.findOne({
-      razorpay_order_id: subscriptionId,
+      razorpay_subscription_id: subscriptionId,
     });
+
+   
 
     if(!payment){
         return next(new ErrorHandler("payment not found",404));
@@ -102,18 +108,27 @@ export const cancelSubscription = catchAsyncErrors(
 
     let refund = false;
 
+
+
     const paymentDate = Date.now() - Number(payment.createdAt);
 
+    
+
     const refundTime = Number(process.env.REFUND_DAYS) * 24 * 60 * 60 * 1000;
+    console.log("chala 5")
 
     if (refundTime >= paymentDate) {
+      console.log(payment.razorpay_payment_id);
       await instance.payments.refund(payment.razorpay_payment_id);
       refund = true;
     }
 
-    await Payment.deleteOne({_id:subscriptionId});
+ 
+    await Payment.deleteOne({razorpay_subscription_id:subscriptionId});
     user.subscription.id = undefined;
     user.subscription.status = undefined;
+
+    
 
     await user.save();
 
