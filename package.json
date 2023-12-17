@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "prod":"tsc && node dist/server.js",
+    "prod": "tsc && node dist/server.js",
     "dev": "concurrently \"tsc -w\" \"nodemon dist/server.js\""
   },
   "keywords": [],
@@ -40,6 +40,8 @@
     "@types/nodemailer": "^6.4.9",
     "@types/validator": "^13.11.1",
     "concurrently": "^8.2.1",
+    "pre-commit": "^1.2.2",
+    "rimraf": "^5.0.5",
     "ts-node": "^10.9.1",
     "typescript": "^5.2.2"
   }
