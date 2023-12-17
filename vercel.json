@@ -1,16 +1,6 @@
 {
     "version": 2,
-    "builds": [
-        {
-            "src": "dist/server.js",
-            "use": "@vercel/node",
-            "config": { "includeFiles": ["dist/**"] }
-        }
-    ],
-    "routes": [
-        {
-            "src": "/(.*)",
-            "dest": "dist/server.js"
-        }
-    ]
+    "name": "video_streaming_backend",
+    "builds": [{ "src": "./dist/server.js", "use": "@vercel/node" }],
+    "routes": [{ "src": "/(.*)", "dest": "./dist/server.js" }]
 }
